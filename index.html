@@ -61,10 +61,15 @@
   else arm();
 })();
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="image" type="image/avif" href="assets/stage-piano.avif" fetchpriority="high">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Public+Sans:wght@400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Pinyon+Script&text=Nashville%20number%20rep%20trainer&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&text=Nashville%20number%20rep%20trainer&display=swap" rel="stylesheet">
+</noscript>
 <style>
   :root{ color-scheme:dark;
     --ink:#0a0a0a; --stage:#111111; --glass:rgba(12,12,12,.62); --hairline:rgba(255,255,255,.12);
@@ -224,7 +229,7 @@
   .wt-banner .wt-ignore{ margin-left:8px; color:var(--ink); border-color:var(--ink); background:transparent; }
   @media (max-width:680px){ .wt-grid{ grid-template-columns:repeat(2, 1fr); } }
 
-  html.intro-pending .scene-img{ opacity:0; transform:scale(1) translateY(0); }
+  html.intro-pending .scene-img{ opacity:0.04; transform:scale(1) translateY(0); }
   html.intro-pending .scene-light{ opacity:1; transform:scale(.35); }
   html.intro-pending .sheet{ opacity:0; transform:translateY(16px); pointer-events:none; }
   html.intro-pending h1{ clip-path:inset(0 100% 0 0); text-shadow:none; }
