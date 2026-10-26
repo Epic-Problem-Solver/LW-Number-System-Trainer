@@ -225,8 +225,8 @@ async function run() {
   try {
     var css = app.document.querySelector('style').textContent;
     check('numbers use gold', /\.wt-num\s*\{[^}]*color:\s*var\(--gold\)/.test(css));
-    check('banner uses violet', /\.wt-banner\s*\{[^}]*background:\s*var\(--violet\)/.test(css));
-    check('banner uses gold text', /\.wt-banner\s*\{[^}]*color:\s*var\(--gold\)/.test(css));
+    check('banner is white', /\.wt-banner\s*\{[^}]*background:\s*var\(--accent\)/.test(css));
+    check('banner text is ink', /\.wt-banner\s*\{[^}]*color:\s*var\(--ink\)/.test(css));
     var credits = app.document.getElementById('credits').textContent.replace(/\s+/g, ' ').trim();
     var expectCredits = 'Audio analysis by Essentia.js, Music Technology Group, Universitat Pompeu Fabra (AGPL-3.0). This page is free software under AGPL-3.0; source: github.com/Epic-Problem-Solver/LW-Number-System-Trainer. Walkthrough layout inspired by ChordMini (MIT).';
     check('footer credits', credits === expectCredits, credits);
