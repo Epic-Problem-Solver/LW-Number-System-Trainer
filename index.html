@@ -14,7 +14,7 @@
   try { seen = sessionStorage.getItem('introSeen') === '1'; } catch (e) {}
   if (reduce) root.classList.add('intro-reduced');
   else if (seen) root.classList.add('intro-short');
-  else root.classList.add('intro-pending');
+  else root.classList.add('intro-run');
 
   function settle() {
     if (root.classList.contains('intro-done')) return;
@@ -45,17 +45,9 @@
     if (ev.target.classList.contains('scene-img') && ev.animationName === 'scene-push') root.classList.remove('intro-run');
   });
   function arm() {
-    if (!root.classList.contains('intro-pending')) return;
-    var img = document.querySelector('.scene-img');
-    var decode = (img && img.decode) ? img.decode().catch(function () {}) : Promise.resolve();
-    var cap = new Promise(function (resolve) { setTimeout(resolve, 400); });
-    Promise.race([decode, cap]).then(function () {
-      if (!root.classList.contains('intro-pending')) return;
-      root.classList.remove('intro-pending');
-      root.classList.add('intro-run');
-      setTimeout(settle, 3100);
-      setTimeout(function () { root.classList.remove('intro-run'); }, 4300);
-    });
+    if (!root.classList.contains('intro-run')) return;
+    setTimeout(settle, 3100);
+    setTimeout(function () { root.classList.remove('intro-run'); }, 4300);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm);
   else arm();
@@ -271,7 +263,7 @@
   html.intro-done h1{
     transition:opacity 200ms linear, transform 200ms linear, clip-path 200ms linear, text-shadow 200ms linear;
   }
-  @keyframes scene-in{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes scene-in{ from{ opacity:0.04; } to{ opacity:1; } }
   @keyframes scene-push{ from{ transform:scale(1) translateY(0); } to{ transform:scale(1.12) translateY(-1.5%); } }
   @keyframes light-open{ from{ transform:scale(.35); opacity:1; } to{ transform:scale(3); opacity:0; } }
   @keyframes title-ink{
