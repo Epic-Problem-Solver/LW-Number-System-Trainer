@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>walkthrough tests: starting</title>
+<style>
+  body { font-family: Georgia, serif; margin: 16px; background: #111; color: #eee; }
+  #log { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 13px; }
+  .fail { color: #f88; }
+  iframe { width: 100%; height: 280px; border: 1px solid #444; background: #fff; }
+</style>
+</head>
+<body>
+<p id="done" data-result="">Running…</p>
+<pre id="log"></pre>
+<iframe id="app" src="index.html" title="Nashville trainer"></iframe>
+<script src="test-fixtures.js"></script>
+<script>
+var pass = 0;
+var fail = 0;
+var logEl = document.getElementById('log');
+
+function log(line) {
+  logEl.textContent += line + '\n';
+}
+
+function check(name, cond, detail) {
+  if (cond) {
+    pass++;
+    log('PASS ' + name);
+  } else {
+    fail++;
+    log('FAIL ' + name + (detail ? ' — ' + detail : ''));
+  }
+}
+
+function once(target, type) {
+  return new Promise(function (resolve) {
+    target.addEventListener(type, function handler() {
+      target.removeEventListener(type, handler);
+      resolve();
+    });
+  });
+}
+
+function withTimeout(promise, ms, label) {
+  return new Promise(function (resolve, reject) {
+    var timer = setTimeout(function () { reject(new Error(label + ' timed out')); }, ms);
+    Promise.resolve(promise).then(function (value) {
+      clearTimeout(timer);
+      resolve(value);
+    }, function (err) {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+function waitForApp() {
+  var frame = document.getElementById('app');
+  function ready() {
+    try { return frame.contentWindow && frame.contentWindow.chordToNumber; }
+    catch (e) { return false; }
+  }
+  if (ready()) return Promise.resolve(frame.contentWindow);
+  return new Promise(function (resolve, reject) {
+    var timer = setTimeout(function () { reject(new Error('index.html script did not expose chordToNumber')); }, 15000);
+    frame.addEventListener('load', function () {
+      if (ready()) {
+        clearTimeout(timer);
+        resolve(frame.contentWindow);
+      }
+    });
+    if (ready()) {
+      clearTimeout(timer);
+      resolve(frame.contentWindow);
+    }
+  });
+}
+
+function chord(rootPc, quality) {
+  return { rootPc: rootPc, quality: quality };
+}
+
+function summarize(walk) {
+  var nums = walk.bars.map(function (bar) {
+    return bar.slots.map(function (slot) { return slot.number; }).join(' ');
+  });
+  return 'key=' + walk.key + ' note=' + (walk.keyNote || '') + ' bpm=' + walk.bpm +
+    ' bars=' + walk.bars.length + ' mods=' + JSON.stringify(walk.modulations) +
+    ' nums=' + nums.join(',');
+}
+
+function scorePattern(walk, pattern) {
+  var nums = walk.bars.map(function (bar) {
+    return bar.slots.map(function (slot) { return slot.number; }).join(' ');
+  });
+  var right = 0;
+  for (var i = 0; i < nums.length; i++) if (nums[i] === pattern[i % pattern.length]) right++;
+  return { right: right, total: nums.length, ratio: nums.length ? right / nums.length : 0, nums: nums };
+}
+
+function wavFile(pcm, name) {
+  return new File([encodeWav(pcm, 44100)], name, { type: 'audio/wav' });
+}
+
+async function run() {
+  var runAudio = new URLSearchParams(location.search).get('audio') !== '0';
+  document.title = 'walkthrough tests: loading app';
+  var app;
+  try {
+    app = await waitForApp();
+  } catch (e) {
+    check('app loaded', false, e.message);
+    finish();
+    return;
+  }
+  var logs = [];
+  var orig = app.console.log;
+  app.console.log = function () {
+    logs.push(Array.prototype.map.call(arguments, String).join(' '));
+    return orig.apply(this, arguments);
+  };
+  app.addEventListener('error', function (ev) { log('app error ' + ev.message); });
+  log('brands ' + JSON.stringify(app.navigator.userAgentData && app.navigator.userAgentData.brands));
+  log('mobile ' + !!(app.navigator.userAgentData && app.navigator.userAgentData.mobile));
+
+  document.title = 'walkthrough tests: chordToNumber';
+  try {
+    var g = { numberingTonicPc: app.NOTE_PC.G };
+    check('G is 1', app.chordToNumber(chord(app.NOTE_PC.G, 'maj'), g) === '1');
+    check('Am is 2-', app.chordToNumber(chord(app.NOTE_PC.A, 'min'), g) === '2-');
+    check('Bm is 3-', app.chordToNumber(chord(app.NOTE_PC.B, 'min'), g) === '3-');
+    check('C is 4', app.chordToNumber(chord(app.NOTE_PC.C, 'maj'), g) === '4');
+    check('D is 5', app.chordToNumber(chord(app.NOTE_PC.D, 'maj'), g) === '5');
+    check('Em is 6-', app.chordToNumber(chord(app.NOTE_PC.E, 'min'), g) === '6-');
+    check('F is b7', app.chordToNumber(chord(app.NOTE_PC.F, 'maj'), g) === 'b7');
+    check('A is 2', app.chordToNumber(chord(app.NOTE_PC.A, 'maj'), g) === '2');
+    check('Bb is b3', app.chordToNumber(chord(app.NOTE_PC.Bb, 'maj'), g) === 'b3');
+    var eb = { numberingTonicPc: app.NOTE_PC.Eb };
+    check('Ab is 4 in Eb', app.chordToNumber(chord(app.NOTE_PC.Ab, 'maj'), eb) === '4');
+    check('Cm is 6- in Eb', app.chordToNumber(chord(app.NOTE_PC.C, 'min'), eb) === '6-');
+    check('null root is N.C.', app.chordToNumber({ rootPc: null, quality: null }, g) === 'N.C.');
+    var roundOk = true;
+    var roundDetail = '';
+    app.KEY_ORDER.forEach(function (key) {
+      for (var degree = 1; degree <= 6; degree++) {
+        var name = app.chordFor(key, degree);
+        var parsed = app.parseChord(name);
+        var got = app.chordToNumber({ rootPc: app.NOTE_PC[parsed.root], quality: parsed.quality }, { numberingTonicPc: app.NOTE_PC[key] });
+        var expect = String(degree) + ((degree === 2 || degree === 3 || degree === 6) ? '-' : '');
+        if (got !== expect) {
+          roundOk = false;
+          roundDetail = key + ' ' + degree + ' ' + name + ' -> ' + got;
+        }
+      }
+    });
+    check('round trip degrees 1-6', roundOk, roundDetail);
+  } catch (e) {
+    check('chordToNumber suite', false, e.stack || e.message);
+  }
+
+  document.title = 'walkthrough tests: urls and chrome gate';
+  try {
+    var samples = [
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      'https://youtu.be/dQw4w9WgXcQ',
+      'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+      'https://www.youtube.com/embed/dQw4w9WgXcQ',
+      'https://www.youtube.com/live/dQw4w9WgXcQ',
+      'https://music.youtube.com/watch?v=dQw4w9WgXcQ',
+      'https://m.youtube.com/watch?v=dQw4w9WgXcQ'
+    ];
+    var urlsOk = samples.every(function (url) {
+      var parsed = app.parseYouTubeUrl(url);
+      return parsed && parsed.id === 'dQw4w9WgXcQ';
+    });
+    check('youtube urls', urlsOk);
+    check('reject other host', app.parseYouTubeUrl('https://example.com/watch?v=dQw4w9WgXcQ') == null);
+    check('chromium gate', app.tabCaptureSupported({
+      userAgentData: { brands: [{ brand: 'Chromium', version: '120' }], mobile: false },
+      mediaDevices: { getDisplayMedia: function () {} }
+    }) === true);
+    check('firefox gate', app.tabCaptureSupported({
+      userAgentData: { brands: [{ brand: 'Firefox', version: '120' }], mobile: false },
+      mediaDevices: { getDisplayMedia: function () {} }
+    }) === false);
+    check('mobile gate', app.tabCaptureSupported({
+      userAgentData: { brands: [{ brand: 'Chromium', version: '120' }], mobile: true },
+      mediaDevices: { getDisplayMedia: function () {} }
+    }) === false);
+    app.applyTabCaptureUi({
+      userAgentData: { brands: [{ brand: 'Firefox', version: '120' }], mobile: false },
+      mediaDevices: { getDisplayMedia: function () {} }
+    });
+    check('firefox hides start', app.document.getElementById('ytStart').hidden === true);
+    check('firefox message shown', app.document.getElementById('ytUnsupported').hidden === false);
+    check('firefox message text', app.document.getElementById('ytUnsupported').textContent.indexOf('desktop Chrome or Edge') !== -1);
+    app.applyTabCaptureUi(app.navigator);
+    check('this browser start visibility matches detection', app.document.getElementById('ytStart').hidden === !app.tabCaptureSupported(app.navigator));
+  } catch (e) {
+    check('browser gate', false, e.stack || e.message);
+  }
+
+  try {
+    var stopped = 0;
+    var reason = app.handleCapturedStream({
+      getAudioTracks: function () { return []; },
+      getVideoTracks: function () { return [{ getSettings: function () { return { displaySurface: 'browser' }; } }]; },
+      getTracks: function () { return [{ stop: function () { stopped++; } }]; }
+    });
+    check('no-audio message', reason === "No audio was shared. Pick the YouTube tab again and turn on 'Also share tab audio'.");
+    check('no-audio stops tracks', stopped === 1);
+    check('no-audio is visible', app.document.getElementById('wtError').textContent.indexOf('No audio was shared') !== -1);
+    check('screen warning string', app.captureRejectionReason({
+      getAudioTracks: function () { return [{}]; },
+      getVideoTracks: function () { return [{ getSettings: function () { return { displaySurface: 'monitor' }; } }]; }
+    }) === 'Share the YouTube tab, not the whole screen.');
+    check('silent level', app.isSilentLevel(0.0005) === true && app.isSilentLevel(0.02) === false);
+    check('silent message exported', app.SILENT_CAPTURE_MSG.indexOf("We're not hearing anything") === 0);
+  } catch (e) {
+    check('capture messages', false, e.stack || e.message);
+  }
+
+  try {
+    var css = app.document.querySelector('style').textContent;
+    check('numbers use gold', /\.wt-num\s*\{[^}]*color:\s*var\(--gold\)/.test(css));
+    check('banner uses violet', /\.wt-banner\s*\{[^}]*background:\s*var\(--violet\)/.test(css));
+    check('banner uses gold text', /\.wt-banner\s*\{[^}]*color:\s*var\(--gold\)/.test(css));
+    var credits = app.document.getElementById('credits').textContent.replace(/\s+/g, ' ').trim();
+    var expectCredits = 'Audio analysis by Essentia.js, Music Technology Group, Universitat Pompeu Fabra (AGPL-3.0). This page is free software under AGPL-3.0; source: github.com/Epic-Problem-Solver/LW-Number-System-Trainer. Walkthrough layout inspired by ChordMini (MIT).';
+    check('footer credits', credits === expectCredits, credits);
+    check('trainer chord stays 1', app.document.getElementById('chordNum').textContent === '1');
+    check('trainer start button', !!app.document.getElementById('startStop'));
+    check('trainer note remains', app.document.body.textContent.indexOf('Degrees follow standard major-key harmony') !== -1);
+  } catch (e) {
+    check('footer and trainer', false, e.stack || e.message);
+  }
+
+  try {
+    var license = await withTimeout(fetch('LICENSE').then(function (res) { return res.text(); }), 15000, 'LICENSE');
+    check('AGPL license', license.indexOf('GNU AFFERO GENERAL PUBLIC LICENSE') !== -1);
+  } catch (e) {
+    check('AGPL license', false, e.message);
+  }
+
+  document.title = 'walkthrough tests: decode limits';
+  try {
+    var called = false;
+    try {
+      await app.decodeFile({
+        name: 'big.mp3',
+        size: 101 * 1024 * 1024,
+        arrayBuffer: function () { called = true; return Promise.resolve(new ArrayBuffer(8)); }
+      });
+      check('rejects over 100 MB', false, 'resolved');
+    } catch (err) {
+      check('rejects over 100 MB', err.code === 'too-large' && called === false, (err.code || err.message) + ' called=' + called);
+    }
+    try {
+      await app.decodeFile(wavFile(tonePcm(4), 'four.wav'));
+      check('rejects under 5s', false, 'resolved');
+    } catch (err) {
+      check('rejects under 5s', err.code === 'too-short', err.code || err.message);
+    }
+    var six = await app.decodeFile(wavFile(tonePcm(6), 'six.wav'));
+    var sixLog = logs.filter(function (line) { return line.indexOf('decoded duration') !== -1 && line.indexOf('six.wav') !== -1; })[0];
+    var loggedDur = sixLog ? parseFloat(sixLog.split(' ')[2]) : NaN;
+    check('logs decoded duration', !!sixLog && loggedDur > 5 && loggedDur < 7, sixLog || 'missing');
+    check('six second pcm', six.durationSec > 5.5 && six.durationSec < 6.5 && six.sampleRate === 44100, String(six.durationSec));
+  } catch (e) {
+    check('decode limits', false, e.stack || e.message);
+  }
+
+  try {
+    var fake = {
+      grid: { beats: [0, 0.5, 1, 1.5, 2], bpm: 120, confidence: 4 },
+      chords: [0, 1, 2, 3].map(function (i) {
+        return { t: i * 0.5, dur: 0.5, rootPc: 7, quality: 'maj', name: 'G', strength: 1 };
+      }),
+      keys: [{ startTime: 0, endTime: 2, tonicPc: 7, mode: 'major', numberingTonicPc: 7, confidence: 1 }],
+      warnings: []
+    };
+    var tabWalk = app.buildWalkthrough(fake, { beatsPerBar: 4, downbeatOffset: 0 });
+    app.renderWalkthrough(tabWalk, app.document.getElementById('wtChart'), { sourceKind: 'tab' });
+    app.document.querySelector('.wt-bar').click();
+    var seek = app.document.getElementById('wtSeek').textContent;
+    check('youtube seek sentence', seek.indexOf('Seek the YouTube tab to ') === 0, seek);
+  } catch (e) {
+    check('youtube seek sentence', false, e.stack || e.message);
+  }
+
+  try {
+    var named = app.buildWalkthrough({
+      grid: { beats: [0, 0.5, 1, 1.5, 2], bpm: 120, confidence: 4 },
+      chords: [0, 1, 2, 3].map(function (i) {
+        var chord5 = i >= 2;
+        return {
+          t: i * 0.5, dur: 0.5,
+          rootPc: chord5 ? 2 : 7,
+          quality: 'maj',
+          name: chord5 ? 'D' : 'G',
+          strength: 1
+        };
+      }),
+      keys: [{ startTime: 0, endTime: 2, tonicPc: 7, mode: 'major', numberingTonicPc: 7, confidence: 1 }],
+      warnings: []
+    }, { beatsPerBar: 4, downbeatOffset: 0 });
+    app.renderWalkthrough(named, app.document.getElementById('wtChart'), { sourceKind: 'file' });
+    var namedBar = app.document.querySelector('.wt-bar');
+    var namedNum = namedBar.querySelector('.wt-num');
+    var namedName = namedBar.querySelector('.wt-name');
+    check('numbers stay on the bar', namedNum.textContent === '1 5', namedNum.textContent);
+    check('chord name is ready', namedName.textContent === 'G D', namedName.textContent);
+    check('chord names start hidden', app.getComputedStyle(namedName).display === 'none');
+    var namesToggle = app.document.getElementById('wtChordNames');
+    namesToggle.click();
+    check('chord names can be shown', app.getComputedStyle(namedName).display !== 'none' && namedNum.textContent === '1 5');
+    namedBar.classList.add('selected');
+    check('chord name readable on selection', app.getComputedStyle(namedName).color === app.getComputedStyle(namedBar.querySelector('.wt-time')).color);
+    namesToggle.click();
+  } catch (e) {
+    check('chord names option', false, e.stack || e.message);
+  }
+
+  document.title = 'walkthrough tests: oembed';
+  try {
+    await withTimeout(app.previewYouTube('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 20000, 'oembed');
+    var entries = app.performance.getEntriesByType('resource').map(function (entry) { return entry.name; });
+    check('oembed request', entries.some(function (name) { return name.indexOf('youtube.com/oembed') !== -1; }), entries.filter(function (name) { return name.indexOf('youtube') !== -1 || name.indexOf('googlevideo') !== -1; }).join(' | '));
+    check('no googlevideo', !entries.some(function (name) { return name.indexOf('googlevideo') !== -1; }));
+    var open = app.document.getElementById('ytOpen');
+    check('open in new tab', open.getAttribute('target') === '_blank' && open.rel.indexOf('noopener') !== -1 && open.href.indexOf('watch?v=dQw4w9WgXcQ') !== -1);
+  } catch (e) {
+    check('oembed', false, e.message);
+  }
+
+  if (!runAudio) {
+    log('ITEM 5 manual: real songs are a listening goal, not an automated gate.');
+    finish();
+    return;
+  }
+
+  document.title = 'walkthrough tests: modulation fixture';
+  try {
+    var before = app.__analyzeCount;
+    var modPcm = await modulationFixture();
+    var modWalk = await withTimeout(app.runFile(wavFile(modPcm, 'modulation.wav')), 480000, 'modulation');
+    var states = app.__states.slice();
+    log('states ' + states.join(' > '));
+    log(summarize(modWalk));
+    log('first beats ' + (app.__lastAnalysis.grid.beats.slice(0, 8).map(function (t) { return t.toFixed(3); }).join(' ')));
+    var debug = app.__lastAnalysis && app.__lastAnalysis.debugWindows || [];
+    log(debug.slice(0, 40).join('\n'));
+    if (app.__lastAnalysis && app.__lastAnalysis.debugStrength) log('strength ' + JSON.stringify(app.__lastAnalysis.debugStrength));
+    check('progress order', states.join(',') === 'loading-engine,decoding,analyzing:beats,analyzing:chords,analyzing:key,done', states.join(' > '));
+    check('analyze ran once', app.__analyzeCount === before + 1, String(app.__analyzeCount));
+    var modScore = scorePattern(modWalk, ['1', '5', '6-', '4']);
+    check('modulation accuracy', modScore.ratio >= 0.9 && modScore.total >= 28, modScore.right + '/' + modScore.total);
+    check('modulation key', modWalk.key === 'G', modWalk.key);
+    check('one modulation', modWalk.modulations.length === 1, JSON.stringify(modWalk.modulations));
+    if (modWalk.modulations[0]) {
+      var mod = modWalk.modulations[0];
+      check('modulation G to A', mod.fromKey === 'G' && mod.toKey === 'A', mod.fromKey + '->' + mod.toKey);
+      check('modulation bar', mod.atBar >= 16 && mod.atBar <= 18, String(mod.atBar));
+      check('modulation time', Math.abs(mod.atTime - 38.4) <= 2.4, String(mod.atTime));
+    }
+    check('bpm near 100', Math.abs(modWalk.bpm - 100) <= 2, String(modWalk.bpm));
+    var bar9 = modWalk.bars[8];
+    var barEl = app.document.querySelector('.wt-bar[data-index="9"]');
+    check('bar 9 exists', !!(bar9 && barEl), bar9 ? 't=' + bar9.t : 'missing');
+    if (bar9 && barEl) {
+      var audio = app.document.getElementById('wtAudio');
+      if (audio.readyState < 1) await withTimeout(once(audio, 'loadedmetadata'), 10000, 'metadata');
+      var seeked = once(audio, 'seeked');
+      barEl.click();
+      await withTimeout(seeked, 10000, 'seek');
+      check('bar 9 seek', Math.abs(audio.currentTime - bar9.t) <= 0.1, audio.currentTime + ' vs ' + bar9.t);
+      check('piano drawn', !!app.document.querySelector('#pianoWrap svg'));
+      var num = app.document.querySelector('.wt-num');
+      var probe = app.document.getElementById('chordNum');
+      check('gold matches trainer', num && probe && getComputedStyle(num).color === getComputedStyle(probe).color, num ? getComputedStyle(num).color : 'none');
+    }
+    var countBeforeNudge = app.__analyzeCount;
+    var firstT = app.__lastWalk.bars[0].t;
+    app.shiftDownbeat(1);
+    check('nudge does not reanalyze', app.__analyzeCount === countBeforeNudge, String(app.__analyzeCount));
+    check('nudge moves bars', app.__downbeatOffset === 1 && app.__lastWalk.bars[0] && app.__lastWalk.bars[0].t !== firstT, String(app.__downbeatOffset));
+    var banner = app.document.querySelector('.wt-banner');
+    check('banner text', !!(banner && banner.textContent.indexOf('Key change: G -> A') !== -1 && banner.textContent.indexOf('Numbers now relative to A') !== -1), banner ? banner.textContent : 'none');
+  } catch (e) {
+    check('modulation fixture', false, e.stack || e.message);
+  }
+
+  document.title = 'walkthrough tests: no modulation';
+  try {
+    var plainPcm = await noModulationFixture();
+    var plain = await withTimeout(app.analyzePcm(plainPcm), 480000, 'no-mod');
+    var plainWalk = app.buildWalkthrough(plain, { beatsPerBar: 4, downbeatOffset: 0 });
+    log('no-mod ' + summarize(plainWalk));
+    log((plain.debugWindows || []).slice(0, 20).join('\n'));
+    var plainScore = scorePattern(plainWalk, ['1', '4', '1', '5']);
+    check('no modulation', plainWalk.modulations.length === 0 && plainWalk.key === 'D', summarize(plainWalk));
+    check('D progression accuracy', plainScore.ratio >= 0.9 && plainScore.total >= 20, plainScore.right + '/' + plainScore.total);
+  } catch (e) {
+    check('no modulation fixture', false, e.stack || e.message);
+  }
+
+  document.title = 'walkthrough tests: relative minor';
+  try {
+    var minorPcm = await relativeMinorFixture();
+    var minor = await withTimeout(app.analyzePcm(minorPcm), 480000, 'minor');
+    var minorWalk = app.buildWalkthrough(minor, { beatsPerBar: 4, downbeatOffset: 0 });
+    log('minor ' + summarize(minorWalk));
+    log((minor.debugWindows || []).slice(0, 20).join('\n'));
+    var minorScore = scorePattern(minorWalk, ['6-', '4', '1', '5']);
+    check('relative key is G', minorWalk.key === 'G', minorWalk.key + ' ' + (minorWalk.keyNote || ''));
+    check('relative numbers', minorScore.ratio >= 0.9, minorScore.right + '/' + minorScore.total + ' ' + minorScore.nums.join(','));
+  } catch (e) {
+    check('relative minor fixture', false, e.stack || e.message);
+  }
+
+  log('ITEM 5 manual: real songs are a listening goal (about 70% of bars, key changes within 2 bars), not an automated gate.');
+  try {
+    var stops = 0;
+    app.bindCaptureStream({ getTracks: function () { return [{ stop: function () { stops++; } }]; } });
+    app.document.getElementById('wtStop').click();
+    await new Promise(function (resolve) { setTimeout(resolve, 50); });
+    check('stop ends the share', stops === 1, String(stops));
+  } catch (e) {
+    check('stop ends the share', false, e.message);
+  }
+  check('trainer chord still 1', app.document.getElementById('chordNum').textContent === '1');
+  finish();
+}
+
+function finish() {
+  var done = document.getElementById('done');
+  done.dataset.result = fail ? 'fail' : 'pass';
+  done.textContent = (fail ? 'FAIL ' : 'PASS ') + pass + ' passed, ' + fail + ' failed';
+  document.title = fail ? 'walkthrough tests: FAIL' : 'walkthrough tests: PASS';
+  log(done.textContent);
+}
+
+window.addEventListener('error', function (ev) {
+  log('window error ' + ev.message);
+});
+run().catch(function (err) {
+  check('runner', false, err.stack || err.message);
+  finish();
+});
+</script>
+</body>
+</html>

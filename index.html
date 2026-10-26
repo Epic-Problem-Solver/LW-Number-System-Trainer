@@ -1,3 +1,4 @@
+<!-- Copyright 2026 Epic-Problem-Solver. Licensed under the GNU Affero General Public License, version 3. See LICENSE. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,6 +83,60 @@
     border:1px solid var(--line); background:transparent; color:var(--text); cursor:pointer;
   }
   .note{ color:var(--muted); font-size:13px; margin-top:28px; line-height:1.6; max-width:60ch; }
+
+  .walkthrough{ margin-top:36px; }
+  .walkthrough h2{ font-family:var(--serif); font-weight:600; font-size:22px; margin:0 0 14px; }
+  .walkthrough [hidden]{ display:none !important; }
+  .walkthrough .note{ margin-top:12px; max-width:none; }
+  .wt-tabs{ display:flex; gap:8px; margin-bottom:14px; }
+  .wt-tabs button[aria-selected="true"]{ border-color:var(--gold); }
+  .dropzone{
+    border:1px dashed var(--line); border-radius:8px; padding:22px; text-align:center;
+    color:var(--muted); margin:8px 0 12px;
+  }
+  .dropzone.drag{ border-color:var(--gold); color:var(--text); }
+  .walkthrough input[type="url"],
+  .walkthrough input[type="file"]{
+    width:100%; color:var(--text); background:transparent; border:1px solid var(--line);
+    border-radius:6px; padding:9px 10px; font-family:var(--sans); font-size:14px;
+  }
+  .wt-actions{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  .walkthrough a.ghost{
+    font-family:var(--sans); font-size:14px; padding:12px 16px; border-radius:8px;
+    border:1px solid var(--line); background:transparent; color:var(--text);
+    text-decoration:none; display:inline-block;
+  }
+  .wt-progress{ height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:8px; }
+  .wt-progress > div{ height:100%; width:0; background:var(--gold); }
+  .wt-meter{ height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin:8px 0; }
+  .wt-meter > div{ height:100%; width:0; background:var(--gold); }
+  #ytPreview{ display:flex; gap:12px; align-items:center; margin-top:12px; }
+  #ytThumb{ width:160px; height:90px; object-fit:cover; border-radius:6px; background:var(--line); }
+  #ytTitle{ margin:0; color:var(--text); }
+  .wt-head{ display:flex; justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  .wt-nudge{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; color:var(--muted); font-size:13px; }
+  .wt-bpm{ color:var(--muted); font-size:13px; }
+  .wt-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:12px; }
+  .wt-bar{
+    border:1px solid var(--line); background:transparent; color:var(--text);
+    border-radius:8px; padding:10px 8px 8px; cursor:pointer; text-align:center; font-family:var(--sans);
+  }
+  .wt-bar .wt-num{ font-family:var(--serif); font-weight:600; font-size:28px; line-height:1; color:var(--gold); }
+  .wt-bar .wt-num.pair{ font-size:18px; }
+  .wt-bar .wt-name{ display:none; color:var(--muted); font-size:13px; line-height:1.2; margin-top:4px; }
+  .wt-show-names .wt-bar .wt-name{ display:block; }
+  .wt-bar .wt-time{ color:var(--muted); font-size:12px; margin-top:6px; }
+  .wt-bar.selected{ background:var(--gold); }
+  .wt-bar.selected .wt-num,
+  .wt-bar.selected .wt-name,
+  .wt-bar.selected .wt-time{ color:#12141C; }
+  .wt-bar.active{ box-shadow:inset 0 0 0 2px var(--gold); }
+  .wt-banner{
+    grid-column:1 / -1; background:var(--violet); color:var(--gold);
+    border-radius:8px; padding:10px 12px; font-family:var(--sans); font-size:14px;
+  }
+  .wt-banner .wt-ignore{ margin-left:8px; color:var(--gold); border-color:var(--gold); }
+  @media (max-width:680px){ .wt-grid{ grid-template-columns:repeat(2, 1fr); } }
 </style>
 </head>
 <body>
@@ -151,6 +206,48 @@
   </div>
 
   <p class="note">Degrees follow standard major-key harmony (1 and 4 and 5 major, 2 and 3 and 6 minor, 7 diminished). "New key each loop" reshuffles the key every time the progression repeats, so you can practice transposing on the fly the way a leader calling an audible would. The metronome accents the first beat of every chord so you can hear the measure, and the keyboard diagram updates live with each chord change.</p>
+
+  <section class="panel walkthrough" id="walkthrough">
+    <h2>Song walkthrough</h2>
+    <div class="wt-tabs" role="tablist">
+      <button type="button" class="ghost" id="tabFile" role="tab" aria-selected="true">Audio file</button>
+      <button type="button" class="ghost" id="tabYt" role="tab" aria-selected="false">YouTube</button>
+    </div>
+    <div id="paneFile">
+      <label for="fileInput">Audio file</label>
+      <div class="dropzone" id="dropzone">Drop an audio file here, or choose one below.</div>
+      <input type="file" id="fileInput" accept="audio/*">
+    </div>
+    <div id="paneYt" hidden>
+      <label for="ytUrl">YouTube URL</label>
+      <input type="url" id="ytUrl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+      <div id="ytPreview" hidden>
+        <img id="ytThumb" alt="" width="160" height="90">
+        <p id="ytTitle"></p>
+      </div>
+      <div class="wt-actions">
+        <a class="ghost" id="ytOpen" target="_blank" rel="noopener" hidden>Open in new tab</a>
+        <button type="button" class="primary" id="ytStart">Start listening</button>
+      </div>
+      <p class="note" id="ytListenNote">Listens to the tab you share while it plays. Nothing is downloaded or saved.</p>
+      <p class="note" id="ytUnsupported" hidden>Listening to a tab needs desktop Chrome or Edge. Firefox, Safari, and phones can't share tab audio yet. Use an audio file instead.</p>
+    </div>
+    <p id="wtStatus" class="note"></p>
+    <div class="wt-progress" id="wtProgress" hidden><div id="wtProgressBar"></div></div>
+    <div id="wtCapture" hidden>
+      <p id="wtElapsed">0:00</p>
+      <div class="wt-meter" aria-hidden="true"><div id="wtMeterFill"></div></div>
+      <p id="wtProvisional">Listening…</p>
+      <button type="button" class="primary" id="wtStop">Stop and build chart</button>
+    </div>
+    <p id="wtWarnings" class="note" hidden></p>
+    <p id="wtError" hidden></p>
+    <button type="button" class="ghost" id="wtRetry" hidden>Try again</button>
+    <p id="wtSeek" hidden></p>
+    <div id="wtChart"></div>
+    <audio id="wtAudio" preload="auto" hidden></audio>
+  </section>
+  <p class="note" id="credits">Audio analysis by <a href="https://essentia.upf.edu/">Essentia.js</a>, Music Technology Group, Universitat Pompeu Fabra (<a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL-3.0</a>). This page is free software under AGPL-3.0; source: <a href="https://github.com/Epic-Problem-Solver/LW-Number-System-Trainer">github.com/Epic-Problem-Solver/LW-Number-System-Trainer</a>. Walkthrough layout inspired by <a href="https://github.com/ptnghia-j/ChordMiniApp">ChordMini</a> (MIT).</p>
 </div>
 
 <script>
@@ -394,6 +491,1069 @@ progSel.addEventListener('change', ()=>{
 
 renderDots(PROGRESSIONS[0].degrees);
 updateDisplay();
+
+const WALKTHROUGH_OPTS = {
+  keyWindowBeats: 32,
+  keyHopBeats: 4,
+  minHoldWindows: 4,
+  minKeyStrength: 0.30,
+  noChordStrength: 0.30
+};
+const NUMBER_NAMES = {0:'1',1:'b2',2:'2',3:'b3',4:'3',5:'4',6:'b5',7:'5',8:'b6',9:'6',10:'b7',11:'7'};
+const DIATONIC_QUALITY = {0:'maj',2:'min',4:'min',5:'maj',7:'maj',9:'min',11:'dim'};
+const DEGREE_OF_INTERVAL = {0:1,2:2,4:3,5:4,7:5,9:6,11:7};
+const ENGINE_LOAD_MESSAGE = "Couldn't load the analysis engine from cdn.jsdelivr.net. Check your connection or ad blocker.";
+const NO_AUDIO_MESSAGE = "No audio was shared. Pick the YouTube tab again and turn on 'Also share tab audio'.";
+const SCREEN_MESSAGE = 'Share the YouTube tab, not the whole screen.';
+const SILENT_CAPTURE_MSG = "We're not hearing anything. Is the video playing?";
+const STATUS_TEXT = {
+  idle: '',
+  'loading-engine': 'Loading the analysis engine…',
+  decoding: 'Decoding audio…',
+  capturing: 'Listening to the shared tab…',
+  'analyzing:beats': 'Finding the beat…',
+  'analyzing:chords': 'Finding chords…',
+  'analyzing:key': 'Finding the key…',
+  done: 'Chart ready.',
+  error: ''
+};
+
+var __states = [];
+var __analyzeCount = 0;
+var __lastWalk = null;
+var __downbeatOffset = 0;
+var lastAnalysis = null;
+var worker = null;
+var workerReadyPromise = null;
+var pendingJobs = {};
+var jobSeq = 0;
+var objectUrls = [];
+var currentSourceKind = 'file';
+var currentTitle = '';
+var trimNotice = '';
+var chartSourceKind = 'file';
+var chartAudio = null;
+var chartSelect = null;
+var downbeatOffset = 0;
+var showChordNames = false;
+var lastErrorCode = '';
+var ytMeta = null;
+var ytTimer = 0;
+var captureStream = null;
+var captureChunks = [];
+var captureSamples = 0;
+var captureRate = 44100;
+var captureGen = 0;
+var captureNode = null;
+var captureMute = null;
+var captureSource = null;
+var silentSamples = 0;
+var silenceNoted = false;
+var lastProvisionalAt = 0;
+var chunkBusy = false;
+var finishingCapture = false;
+
+var tabFile = document.getElementById('tabFile');
+var tabYt = document.getElementById('tabYt');
+var paneFile = document.getElementById('paneFile');
+var paneYt = document.getElementById('paneYt');
+var dropzone = document.getElementById('dropzone');
+var fileInput = document.getElementById('fileInput');
+var ytUrl = document.getElementById('ytUrl');
+var ytPreview = document.getElementById('ytPreview');
+var ytThumb = document.getElementById('ytThumb');
+var ytTitle = document.getElementById('ytTitle');
+var ytOpen = document.getElementById('ytOpen');
+var ytStart = document.getElementById('ytStart');
+var ytUnsupported = document.getElementById('ytUnsupported');
+var wtStatus = document.getElementById('wtStatus');
+var wtProgress = document.getElementById('wtProgress');
+var wtProgressBar = document.getElementById('wtProgressBar');
+var wtCapture = document.getElementById('wtCapture');
+var wtElapsed = document.getElementById('wtElapsed');
+var wtMeterFill = document.getElementById('wtMeterFill');
+var wtProvisional = document.getElementById('wtProvisional');
+var wtStop = document.getElementById('wtStop');
+var wtWarnings = document.getElementById('wtWarnings');
+var wtError = document.getElementById('wtError');
+var wtRetry = document.getElementById('wtRetry');
+var wtSeek = document.getElementById('wtSeek');
+var wtChart = document.getElementById('wtChart');
+var wtAudio = document.getElementById('wtAudio');
+
+function chordToNumber(chord, seg) {
+  if (!chord || chord.rootPc == null || !seg) return 'N.C.';
+  var interval = (chord.rootPc - seg.numberingTonicPc + 12) % 12;
+  var num = NUMBER_NAMES[interval] || 'N.C.';
+  if (chord.quality === 'min') num += '-';
+  return num;
+}
+
+function displayNameFor(chord, seg) {
+  if (!chord || chord.rootPc == null) return 'N.C.';
+  var interval = (chord.rootPc - seg.numberingTonicPc + 12) % 12;
+  if (DIATONIC_QUALITY[interval] && DIATONIC_QUALITY[interval] === chord.quality) {
+    return chordFor(KEY_ORDER[seg.numberingTonicPc], DEGREE_OF_INTERVAL[interval]);
+  }
+  return chord.name || 'N.C.';
+}
+
+function keyNoteFor(seg) {
+  var major = KEY_ORDER[seg.numberingTonicPc];
+  var relative = KEY_ORDER[(seg.numberingTonicPc + 9) % 12] + 'm';
+  return relative + ' feel, numbered in relative major ' + major;
+}
+
+function formatTime(sec) {
+  sec = Math.max(0, Math.round(Number(sec) || 0));
+  var minutes = Math.floor(sec / 60);
+  var seconds = sec % 60;
+  return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+}
+
+function setProgress(pct) {
+  wtProgressBar.style.width = Math.max(0, Math.min(100, pct * 100)) + '%';
+}
+
+function setState(state) {
+  if (__states[__states.length - 1] !== state) __states.push(state);
+  window.__state = state;
+  if (state !== 'error' && Object.prototype.hasOwnProperty.call(STATUS_TEXT, state)) {
+    wtStatus.textContent = STATUS_TEXT[state];
+  }
+  var showBar = state === 'loading-engine' || state === 'decoding' || state.indexOf('analyzing:') === 0;
+  wtProgress.hidden = !showBar;
+  if (state === 'loading-engine') setProgress(0.02);
+  if (state === 'decoding') setProgress(0.08);
+  if (state === 'done') setProgress(1);
+}
+
+function showWarnings(list) {
+  if (!list || !list.length) {
+    wtWarnings.hidden = true;
+    wtWarnings.textContent = '';
+    return;
+  }
+  wtWarnings.hidden = false;
+  wtWarnings.textContent = list.join(' ');
+}
+
+function showError(err) {
+  lastErrorCode = err && err.code || '';
+  var message = err && err.message ? err.message : 'Something went wrong.';
+  if (lastErrorCode === 'engine-load') message = ENGINE_LOAD_MESSAGE;
+  if (lastErrorCode === 'too-short') message = 'This audio is under 5 seconds.';
+  if (lastErrorCode === 'too-large') message = 'This file is over 100 MB.';
+  setState('error');
+  wtError.hidden = false;
+  wtError.textContent = message;
+  wtRetry.hidden = false;
+  wtCapture.hidden = true;
+}
+
+function engineLoadError() {
+  var err = new Error(ENGINE_LOAD_MESSAGE);
+  err.code = 'engine-load';
+  return err;
+}
+
+function resetWorker() {
+  if (worker) {
+    try { worker.terminate(); } catch (e) { /* already gone */ }
+  }
+  worker = null;
+  workerReadyPromise = null;
+  pendingJobs = {};
+}
+
+function handleWorkerMessage(message) {
+  if (!message) return;
+  if (message.type === 'progress' && pendingJobs[message.id]) {
+    setState('analyzing:' + message.stage);
+    if (typeof message.pct === 'number') setProgress(message.pct);
+    return;
+  }
+  if (message.type === 'provisional') {
+    var prefix = silenceNoted ? SILENT_CAPTURE_MSG + ' ' : '';
+    wtProvisional.textContent = prefix + (message.name || '…');
+    return;
+  }
+  if (message.type === 'result' && pendingJobs[message.id]) {
+    pendingJobs[message.id].resolve(message.analysis);
+    delete pendingJobs[message.id];
+    return;
+  }
+  if (message.type === 'error' && message.id && pendingJobs[message.id]) {
+    var err = new Error(message.message || 'Analysis failed.');
+    err.code = message.code || 'internal';
+    pendingJobs[message.id].reject(err);
+    delete pendingJobs[message.id];
+  }
+}
+
+function ensureWorker() {
+  if (workerReadyPromise) return workerReadyPromise;
+  workerReadyPromise = new Promise(function (resolve, reject) {
+    var ready = false;
+    var timer = setTimeout(function () {
+      if (ready) return;
+      ready = true;
+      reject(engineLoadError());
+    }, 90000);
+    try {
+      worker = new Worker('analysis-worker.js', { type: 'module' });
+    } catch (e) {
+      ready = true;
+      clearTimeout(timer);
+      reject(engineLoadError());
+      return;
+    }
+    worker.addEventListener('message', function (ev) {
+      var message = ev.data || {};
+      if (message.type === 'ready' && !ready) {
+        ready = true;
+        clearTimeout(timer);
+        resolve(worker);
+        return;
+      }
+      if (message.type === 'error' && message.code === 'engine-load' && !ready) {
+        ready = true;
+        clearTimeout(timer);
+        reject(engineLoadError());
+        return;
+      }
+      handleWorkerMessage(message);
+    });
+    worker.addEventListener('error', function () {
+      if (!ready) {
+        ready = true;
+        clearTimeout(timer);
+        reject(engineLoadError());
+        return;
+      }
+      Object.keys(pendingJobs).forEach(function (id) {
+        var job = pendingJobs[id];
+        delete pendingJobs[id];
+        var err = new Error('Analysis failed.');
+        err.code = 'internal';
+        job.reject(err);
+      });
+    });
+  });
+  workerReadyPromise.catch(function () { workerReadyPromise = null; });
+  return workerReadyPromise;
+}
+
+function analyzeInWorker(pcm) {
+  return ensureWorker().then(function () {
+    var id = 'a' + (++jobSeq);
+    __analyzeCount++;
+    window.__analyzeCount = __analyzeCount;
+    var copy = new Float32Array(pcm);
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        if (!pendingJobs[id]) return;
+        delete pendingJobs[id];
+        try { worker.postMessage({ type: 'cancel', id: id }); } catch (e) { /* worker gone */ }
+        var err = new Error('Analysis took too long.');
+        err.code = 'internal';
+        reject(err);
+      }, 480000);
+      pendingJobs[id] = {
+        resolve: function (value) { clearTimeout(timer); resolve(value); },
+        reject: function (err) { clearTimeout(timer); reject(err); }
+      };
+      worker.postMessage({
+        type: 'analyze',
+        id: id,
+        pcm: copy,
+        opts: WALKTHROUGH_OPTS
+      }, [copy.buffer]);
+    });
+  });
+}
+
+function analyzePcm(pcm) {
+  return analyzeInWorker(pcm);
+}
+
+function downmix(buffer, maxSec) {
+  var rate = buffer.sampleRate;
+  var length = buffer.length;
+  if (maxSec) length = Math.min(length, Math.floor(maxSec * rate));
+  var channels = buffer.numberOfChannels;
+  var mono = new Float32Array(length);
+  for (var c = 0; c < channels; c++) {
+    var data = buffer.getChannelData(c);
+    for (var i = 0; i < length; i++) mono[i] += data[i];
+  }
+  if (channels > 1) {
+    var inv = 1 / channels;
+    for (var j = 0; j < length; j++) mono[j] *= inv;
+  }
+  return { pcm: mono, sampleRate: rate };
+}
+
+async function resampleMono(mono, fromRate) {
+  var length = Math.max(1, Math.round(mono.length * 44100 / fromRate));
+  var offline = new OfflineAudioContext(1, length, 44100);
+  var sourceBuffer = new AudioBuffer({ length: mono.length, numberOfChannels: 1, sampleRate: fromRate });
+  sourceBuffer.copyToChannel(new Float32Array(mono), 0);
+  var source = offline.createBufferSource();
+  source.buffer = sourceBuffer;
+  source.connect(offline.destination);
+  source.start(0);
+  var rendered = await offline.startRendering();
+  return new Float32Array(rendered.getChannelData(0));
+}
+
+async function decodeFile(file) {
+  if (file.size > 100 * 1024 * 1024) {
+    var tooBig = new Error('This file is over 100 MB.');
+    tooBig.code = 'too-large';
+    throw tooBig;
+  }
+  ensureAudio();
+  var raw = await file.arrayBuffer();
+  var audioBuf;
+  try {
+    audioBuf = await audioCtx.decodeAudioData(raw.slice(0));
+  } catch (e) {
+    var bad = new Error('Could not decode that audio file.');
+    bad.code = 'internal';
+    throw bad;
+  }
+  console.log('decoded duration ' + audioBuf.duration + ' ' + (file.name || ''));
+  if (audioBuf.duration < 5) {
+    var tooShort = new Error('This audio is under 5 seconds.');
+    tooShort.code = 'too-short';
+    throw tooShort;
+  }
+  var notice = '';
+  var maxSec = audioBuf.duration;
+  if (audioBuf.duration > 600) {
+    maxSec = 600;
+    notice = 'Trimmed to the first 10 minutes.';
+  }
+  var mixed = downmix(audioBuf, maxSec);
+  var pcm = await resampleMono(mixed.pcm, mixed.sampleRate);
+  var objectUrl = '';
+  try {
+    objectUrl = URL.createObjectURL(file);
+    objectUrls.push(objectUrl);
+  } catch (e) { /* not a blob */ }
+  return {
+    pcm: pcm,
+    sampleRate: 44100,
+    durationSec: pcm.length / 44100,
+    source: { kind: 'file', name: file.name || '', objectUrl: objectUrl },
+    notice: notice
+  };
+}
+
+function barSlots(slice, seg) {
+  if (!slice.length) {
+    var empty = { rootPc: null, quality: null, name: 'N', t: 0, dur: 0, strength: 0 };
+    return [{ chord: empty, number: 'N.C.', displayName: 'N.C.' }];
+  }
+  var groups = [];
+  slice.forEach(function (chord) {
+    var id = chord.rootPc == null ? 'N' : chord.rootPc + ':' + chord.quality;
+    var group = null;
+    for (var i = 0; i < groups.length; i++) if (groups[i].id === id) group = groups[i];
+    if (!group) {
+      group = { id: id, count: 0, firstT: chord.t, chord: chord };
+      groups.push(group);
+    }
+    group.count++;
+    if (chord.t < group.firstT) {
+      group.firstT = chord.t;
+      group.chord = chord;
+    }
+  });
+  groups.sort(function (a, b) { return b.count - a.count || a.firstT - b.firstT; });
+  var top = groups.slice(0, 2);
+  if (top[0].count === slice.length) top = [top[0]];
+  top.sort(function (a, b) { return a.firstT - b.firstT; });
+  return top.map(function (group) {
+    return {
+      chord: group.chord,
+      number: chordToNumber(group.chord, seg),
+      displayName: displayNameFor(group.chord, seg)
+    };
+  });
+}
+
+function buildWalkthrough(analysis, options) {
+  options = options || {};
+  var per = options.beatsPerBar || 4;
+  var offset = options.downbeatOffset || 0;
+  var beats = analysis.grid && analysis.grid.beats || [];
+  var chords = analysis.chords || [];
+  var keys = analysis.keys && analysis.keys.length ? analysis.keys : [{
+    startTime: 0, endTime: 1e9, tonicPc: 0, mode: 'major', numberingTonicPc: 0, confidence: 0
+  }];
+  var bars = [];
+  for (var i = offset; i + per < beats.length; i += per) {
+    var t0 = beats[i];
+    var t1 = beats[i + per];
+    var slice = [];
+    for (var c = 0; c < chords.length; c++) {
+      if (chords[c].t >= t0 - 0.001 && chords[c].t < t1 - 0.0001) slice.push(chords[c]);
+    }
+    var keyIndex = 0;
+    for (var k = 0; k < keys.length; k++) {
+      if (t0 >= keys[k].startTime - 0.02) keyIndex = k;
+    }
+    bars.push({
+      index: bars.length + 1,
+      t: t0,
+      dur: Math.max(0, t1 - t0),
+      slots: barSlots(slice, keys[keyIndex]),
+      keyIndex: keyIndex
+    });
+  }
+  var modulations = [];
+  for (var m = 1; m < keys.length; m++) {
+    if (keys[m].numberingTonicPc === keys[m - 1].numberingTonicPc) continue;
+    var atTime = keys[m].startTime;
+    var atBar = bars.length ? bars[bars.length - 1].index : 1;
+    for (var b = 0; b < bars.length; b++) {
+      if (bars[b].t >= atTime - 0.03) { atBar = bars[b].index; break; }
+    }
+    modulations.push({
+      fromKey: KEY_ORDER[keys[m - 1].numberingTonicPc],
+      toKey: KEY_ORDER[keys[m].numberingTonicPc],
+      atTime: atTime,
+      atBar: atBar,
+      keyIndex: m
+    });
+  }
+  var first = keys[0];
+  var walk = {
+    key: KEY_ORDER[first.numberingTonicPc] || 'C',
+    bpm: analysis.grid ? analysis.grid.bpm : 0,
+    bars: bars,
+    modulations: modulations
+  };
+  if (first.minorFeel) walk.keyNote = keyNoteFor(first);
+  return walk;
+}
+
+function selectBar(bar) {
+  var nodes = wtChart.querySelectorAll('.wt-bar');
+  for (var i = 0; i < nodes.length; i++) {
+    var on = nodes[i].dataset.index === String(bar.index);
+    nodes[i].classList.toggle('selected', on);
+    nodes[i].classList.toggle('active', on);
+  }
+  var slot = bar.slots[0];
+  var name = slot ? slot.displayName : 'N.C.';
+  if (name && name !== 'N.C.') {
+    showKeyboardBox.checked = true;
+    pianoBlock.style.display = 'flex';
+    renderPiano(name);
+  }
+  if (chartSourceKind === 'tab') {
+    wtSeek.hidden = false;
+    wtSeek.textContent = 'Seek the YouTube tab to ' + formatTime(bar.t);
+  } else {
+    wtSeek.hidden = true;
+    if (chartAudio && chartAudio.src) {
+      var seek = function () {
+        try { chartAudio.currentTime = bar.t; } catch (e) { /* not seekable yet */ }
+        var playing = chartAudio.play();
+        if (playing && typeof playing.catch === 'function') playing.catch(function () {});
+      };
+      if (chartAudio.readyState >= 1) seek();
+      else chartAudio.addEventListener('loadedmetadata', seek, { once: true });
+    }
+  }
+  if (chartSelect) chartSelect(bar);
+}
+
+function bannerEl(mod) {
+  var box = document.createElement('div');
+  box.className = 'wt-banner';
+  var sentence = document.createElement('span');
+  sentence.textContent = 'Key change: ' + mod.fromKey + ' -> ' + mod.toKey + ' at ' + formatTime(mod.atTime) + ' (bar ' + mod.atBar + '). Numbers now relative to ' + mod.toKey + '.';
+  var ignore = document.createElement('button');
+  ignore.type = 'button';
+  ignore.className = 'ghost wt-ignore';
+  ignore.textContent = 'Ignore this key change';
+  ignore.addEventListener('click', function () { ignoreKeyChange(mod.keyIndex); });
+  box.appendChild(sentence);
+  box.appendChild(ignore);
+  return box;
+}
+
+function barEl(bar) {
+  var button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'wt-bar';
+  button.dataset.index = String(bar.index);
+  var num = document.createElement('div');
+  num.className = 'wt-num' + (bar.slots.length > 1 ? ' pair' : '');
+  num.textContent = bar.slots.map(function (slot) { return slot.number; }).join(' ') || 'N.C.';
+  var name = document.createElement('div');
+  name.className = 'wt-name';
+  name.textContent = bar.slots.map(function (slot) { return slot.displayName; }).join(' ') || 'N.C.';
+  var time = document.createElement('div');
+  time.className = 'wt-time';
+  time.textContent = formatTime(bar.t);
+  button.appendChild(num);
+  button.appendChild(name);
+  button.appendChild(time);
+  button.addEventListener('click', function () { selectBar(bar); });
+  return button;
+}
+
+function renderWalkthrough(walk, el, options) {
+  options = options || {};
+  __lastWalk = walk;
+  window.__lastWalk = walk;
+  chartSourceKind = options.sourceKind || currentSourceKind;
+  chartAudio = options.audioEl || wtAudio;
+  chartSelect = options.onSelectBar || null;
+  el = el || wtChart;
+  el.textContent = '';
+  el.classList.toggle('wt-show-names', showChordNames);
+  if (chartSourceKind !== 'tab') wtSeek.hidden = true;
+  var head = document.createElement('div');
+  head.className = 'wt-head';
+  var key = document.createElement('div');
+  key.className = 'keylabel';
+  key.id = 'wtKeyLabel';
+  key.textContent = 'Key of ' + walk.key + (walk.keyNote ? ' (' + walk.keyNote + ')' : '');
+  var meta = document.createElement('div');
+  meta.className = 'wt-nudge';
+  var bpm = document.createElement('span');
+  bpm.className = 'wt-bpm';
+  bpm.textContent = '~' + Math.round(walk.bpm) + ' bpm';
+  var namesLabel = document.createElement('label');
+  namesLabel.className = 'toggle';
+  var namesInput = document.createElement('input');
+  namesInput.type = 'checkbox';
+  namesInput.id = 'wtChordNames';
+  namesInput.checked = showChordNames;
+  namesInput.addEventListener('change', function () {
+    showChordNames = namesInput.checked;
+    el.classList.toggle('wt-show-names', showChordNames);
+  });
+  var namesText = document.createElement('span');
+  namesText.textContent = 'Chord names';
+  namesLabel.appendChild(namesInput);
+  namesLabel.appendChild(namesText);
+  var shift = document.createElement('span');
+  shift.textContent = 'Shift bars:';
+  var minus = document.createElement('button');
+  minus.type = 'button';
+  minus.className = 'ghost';
+  minus.id = 'wtNudgeMinus';
+  minus.textContent = '-1 beat';
+  minus.addEventListener('click', function () { shiftDownbeat(-1); });
+  var plus = document.createElement('button');
+  plus.type = 'button';
+  plus.className = 'ghost';
+  plus.id = 'wtNudgePlus';
+  plus.textContent = '+1 beat';
+  plus.addEventListener('click', function () { shiftDownbeat(1); });
+  meta.appendChild(bpm);
+  meta.appendChild(namesLabel);
+  meta.appendChild(shift);
+  meta.appendChild(minus);
+  meta.appendChild(plus);
+  head.appendChild(key);
+  head.appendChild(meta);
+  el.appendChild(head);
+  if (currentTitle) {
+    var title = document.createElement('p');
+    title.className = 'note';
+    title.textContent = currentTitle;
+    el.appendChild(title);
+  }
+  showWarnings(options.warnings || []);
+  var grid = document.createElement('div');
+  grid.className = 'wt-grid';
+  var mods = walk.modulations || [];
+  walk.bars.forEach(function (bar) {
+    mods.forEach(function (mod) {
+      if (mod.atBar === bar.index) grid.appendChild(bannerEl(mod));
+    });
+    grid.appendChild(barEl(bar));
+  });
+  el.appendChild(grid);
+}
+
+function shiftDownbeat(delta) {
+  if (!lastAnalysis) return __lastWalk;
+  downbeatOffset = (downbeatOffset + delta) % 4;
+  if (downbeatOffset < 0) downbeatOffset += 4;
+  __downbeatOffset = downbeatOffset;
+  window.__downbeatOffset = downbeatOffset;
+  var warnings = (lastAnalysis.warnings || []).slice();
+  if (trimNotice) warnings.push(trimNotice);
+  var walk = buildWalkthrough(lastAnalysis, { beatsPerBar: 4, downbeatOffset: downbeatOffset });
+  renderWalkthrough(walk, wtChart, { audioEl: wtAudio, sourceKind: currentSourceKind, warnings: warnings });
+  return walk;
+}
+
+function ignoreKeyChange(keyIndex) {
+  if (!lastAnalysis || !lastAnalysis.keys) return __lastWalk;
+  var keys = lastAnalysis.keys;
+  if (keyIndex <= 0 || keyIndex >= keys.length) return __lastWalk;
+  keys[keyIndex - 1].endTime = keys[keyIndex].endTime;
+  keys.splice(keyIndex, 1);
+  var warnings = (lastAnalysis.warnings || []).slice();
+  if (trimNotice) warnings.push(trimNotice);
+  var walk = buildWalkthrough(lastAnalysis, { beatsPerBar: 4, downbeatOffset: downbeatOffset });
+  renderWalkthrough(walk, wtChart, { audioEl: wtAudio, sourceKind: currentSourceKind, warnings: warnings });
+  return walk;
+}
+
+function finishAnalysis(analysis) {
+  lastAnalysis = analysis;
+  window.__lastAnalysis = analysis;
+  downbeatOffset = 0;
+  __downbeatOffset = 0;
+  window.__downbeatOffset = 0;
+  var names = (analysis.chords || []).map(function (chord) { return chord.name; }).join(' ');
+  console.log('bpm ' + analysis.grid.bpm + ' chords ' + names);
+  var warnings = (analysis.warnings || []).slice();
+  if (trimNotice) warnings.push(trimNotice);
+  var walk = buildWalkthrough(analysis, { beatsPerBar: 4, downbeatOffset: 0 });
+  renderWalkthrough(walk, wtChart, { audioEl: wtAudio, sourceKind: currentSourceKind, warnings: warnings });
+  setState('done');
+  return walk;
+}
+
+async function runFile(file) {
+  __states.length = 0;
+  setState('loading-engine');
+  wtChart.textContent = '';
+  wtError.hidden = true;
+  wtRetry.hidden = true;
+  wtSeek.hidden = true;
+  try {
+    await ensureWorker();
+    setState('decoding');
+    var input = await decodeFile(file);
+    currentSourceKind = 'file';
+    currentTitle = input.source.name || '';
+    trimNotice = input.notice || '';
+    if (input.source.objectUrl) wtAudio.src = input.source.objectUrl;
+    var analysis = await analyzeInWorker(input.pcm);
+    return finishAnalysis(analysis);
+  } catch (err) {
+    showError(err);
+    throw err;
+  }
+}
+
+function isSilentLevel(rms) {
+  return rms < 0.001;
+}
+
+function tabCaptureSupported(nav) {
+  nav = nav || navigator;
+  var data = nav.userAgentData;
+  var brands = data && data.brands;
+  var chromium = false;
+  if (brands && brands.length) {
+    for (var i = 0; i < brands.length; i++) {
+      var brand = brands[i] && brands[i].brand;
+      if (brand && String(brand).indexOf('Chromium') !== -1) chromium = true;
+    }
+  }
+  var mobile = !!(data && data.mobile);
+  var canShare = nav.mediaDevices && typeof nav.mediaDevices.getDisplayMedia === 'function';
+  return !!(chromium && !mobile && canShare);
+}
+
+function applyTabCaptureUi(nav) {
+  var ok = tabCaptureSupported(nav);
+  ytStart.hidden = !ok;
+  ytUnsupported.hidden = ok;
+  return ok;
+}
+
+function captureRejectionReason(stream) {
+  var audio = stream.getAudioTracks ? stream.getAudioTracks() : [];
+  if (!audio || !audio.length) return NO_AUDIO_MESSAGE;
+  var video = stream.getVideoTracks ? stream.getVideoTracks() : [];
+  var settings = video[0] && video[0].getSettings ? video[0].getSettings() : null;
+  if (settings && settings.displaySurface && settings.displaySurface !== 'browser') return SCREEN_MESSAGE;
+  return '';
+}
+
+function handleCapturedStream(stream) {
+  var audio = stream.getAudioTracks ? stream.getAudioTracks() : [];
+  if (!audio.length) {
+    try { stream.getTracks().forEach(function (track) { if (track.stop) track.stop(); }); } catch (e) { /* mock */ }
+    showError(new Error(NO_AUDIO_MESSAGE));
+    return NO_AUDIO_MESSAGE;
+  }
+  var reason = captureRejectionReason(stream);
+  if (reason === SCREEN_MESSAGE) {
+    wtWarnings.hidden = false;
+    wtWarnings.textContent = SCREEN_MESSAGE;
+  }
+  return '';
+}
+
+function parseYouTubeUrl(raw) {
+  if (!raw) return null;
+  var url;
+  try { url = new URL(String(raw).trim()); }
+  catch (e) { return null; }
+  var host = url.hostname.toLowerCase().replace(/^www\./, '');
+  var id = '';
+  var parts = url.pathname.split('/').filter(Boolean);
+  if (host === 'youtu.be') id = parts[0] || '';
+  else if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+    if (parts[0] === 'watch') id = url.searchParams.get('v') || '';
+    else if (parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'live') id = parts[1] || '';
+  } else return null;
+  id = id.replace(/[^A-Za-z0-9_-].*$/, '');
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+  return { id: id, url: 'https://www.youtube.com/watch?v=' + id };
+}
+
+function safeThumb(url) {
+  try {
+    var parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return '';
+    if (/(^|\.)((i|img)\.ytimg\.com|ytimg\.com|youtube\.com)$/.test(parsed.hostname)) return url;
+  } catch (e) { /* ignore */ }
+  return '';
+}
+
+function previewYouTube(url) {
+  var parsed = parseYouTubeUrl(url);
+  if (!parsed) return Promise.reject(new Error('That does not look like a YouTube link.'));
+  var endpoint = 'https://www.youtube.com/oembed?url=' + encodeURIComponent(parsed.url) + '&format=json';
+  return fetch(endpoint).then(function (res) {
+    if (!res.ok) throw new Error("Could not load that video's title.");
+    return res.json();
+  }).then(function (data) {
+    ytMeta = {
+      url: parsed.url,
+      title: data.title || '',
+      author: data.author_name || '',
+      thumbnail: data.thumbnail_url || ''
+    };
+    ytPreview.hidden = false;
+    ytTitle.textContent = ytMeta.title;
+    var thumb = safeThumb(ytMeta.thumbnail);
+    if (thumb) ytThumb.src = thumb;
+    ytOpen.href = parsed.url;
+    ytOpen.hidden = false;
+    return data;
+  });
+}
+
+function concatFloats(list) {
+  var total = 0;
+  for (var i = 0; i < list.length; i++) total += list[i].length;
+  var out = new Float32Array(total);
+  var offset = 0;
+  for (var j = 0; j < list.length; j++) {
+    out.set(list[j], offset);
+    offset += list[j].length;
+  }
+  return out;
+}
+
+function tailCopy(list, count) {
+  var total = 0;
+  for (var i = 0; i < list.length; i++) total += list[i].length;
+  var start = Math.max(0, total - count);
+  var out = new Float32Array(Math.min(count, total));
+  var pos = 0;
+  var skip = start;
+  for (var j = 0; j < list.length; j++) {
+    var chunk = list[j];
+    if (skip >= chunk.length) { skip -= chunk.length; continue; }
+    var slice = chunk.subarray(skip);
+    out.set(slice, pos);
+    pos += slice.length;
+    skip = 0;
+  }
+  return out;
+}
+
+function bindCaptureStream(stream) {
+  captureStream = stream;
+  window.__captureStream = stream;
+}
+
+function stopSharedTracks() {
+  var stream = captureStream;
+  captureStream = null;
+  window.__captureStream = null;
+  if (!stream || !stream.getTracks) return;
+  stream.getTracks().forEach(function (track) {
+    try { track.stop(); } catch (e) { /* already stopped */ }
+  });
+}
+
+function disconnectCaptureGraph() {
+  try { if (captureNode) captureNode.disconnect(); } catch (e) { /* already disconnected */ }
+  try { if (captureMute) captureMute.disconnect(); } catch (e) { /* already disconnected */ }
+  try { if (captureSource) captureSource.disconnect(); } catch (e) { /* already disconnected */ }
+  captureNode = null;
+  captureMute = null;
+  captureSource = null;
+}
+
+async function sendChunk() {
+  if (chunkBusy || !worker) return;
+  chunkBusy = true;
+  try {
+    var tail = tailCopy(captureChunks, Math.floor(captureRate * 4));
+    var pcm = await resampleMono(tail, captureRate);
+    var id = 'c' + (++jobSeq);
+    var copy = new Float32Array(pcm);
+    worker.postMessage({ type: 'chunk', id: id, pcm: copy }, [copy.buffer]);
+  } catch (e) {
+    console.log('chunk failed ' + (e && e.message ? e.message : e));
+  } finally {
+    chunkBusy = false;
+  }
+}
+
+function onCaptureBlock(data) {
+  if (!(data instanceof Float32Array)) data = new Float32Array(data);
+  captureChunks.push(data);
+  captureSamples += data.length;
+  var sum = 0;
+  for (var i = 0; i < data.length; i++) sum += data[i] * data[i];
+  var rms = Math.sqrt(sum / Math.max(1, data.length));
+  if (isSilentLevel(rms)) silentSamples += data.length;
+  else silentSamples = 0;
+  wtMeterFill.style.width = Math.max(2, Math.min(100, rms * 400)) + '%';
+  var elapsed = captureSamples / captureRate;
+  wtElapsed.textContent = formatTime(elapsed);
+  if (!silenceNoted && silentSamples >= captureRate * 10) {
+    silenceNoted = true;
+    wtStatus.textContent = SILENT_CAPTURE_MSG;
+  }
+  if (captureSamples - lastProvisionalAt >= captureRate * 4) {
+    lastProvisionalAt = captureSamples;
+    sendChunk();
+  }
+  if (elapsed >= 600) finishCapture();
+}
+
+async function finishCapture() {
+  if (finishingCapture) return;
+  if (!captureStream && captureSamples === 0) return;
+  finishingCapture = true;
+  captureGen++;
+  var raw = captureChunks;
+  var rate = captureRate || 44100;
+  captureChunks = [];
+  captureSamples = 0;
+  stopSharedTracks();
+  disconnectCaptureGraph();
+  wtCapture.hidden = true;
+  try {
+    setState('decoding');
+    var pcm = concatFloats(raw);
+    raw = [];
+    if (pcm.length < rate * 5) {
+      var err = new Error('This audio is under 5 seconds.');
+      err.code = 'too-short';
+      throw err;
+    }
+    var trimmed = false;
+    if (pcm.length > rate * 600) {
+      pcm = pcm.subarray(0, Math.floor(rate * 600));
+      trimmed = true;
+    }
+    var resampled = await resampleMono(pcm, rate);
+    currentSourceKind = 'tab';
+    currentTitle = ytMeta && ytMeta.title ? ytMeta.title : 'YouTube tab';
+    trimNotice = trimmed ? 'Trimmed to the first 10 minutes.' : '';
+    var analysis = await analyzeInWorker(resampled);
+    finishAnalysis(analysis);
+  } catch (err) {
+    showError(err);
+  } finally {
+    finishingCapture = false;
+  }
+}
+
+function stopCapture() {
+  return finishCapture();
+}
+
+async function runCapture(stream) {
+  bindCaptureStream(stream);
+  ensureAudio();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+  captureRate = audioCtx.sampleRate || 44100;
+  await audioCtx.audioWorklet.addModule('capture-worklet.js');
+  captureChunks = [];
+  captureSamples = 0;
+  silentSamples = 0;
+  silenceNoted = false;
+  lastProvisionalAt = 0;
+  var generation = ++captureGen;
+  captureSource = audioCtx.createMediaStreamSource(stream);
+  captureNode = new AudioWorkletNode(audioCtx, 'capture-processor');
+  captureMute = audioCtx.createGain();
+  captureMute.gain.value = 0;
+  captureSource.connect(captureNode);
+  captureNode.connect(captureMute);
+  captureMute.connect(audioCtx.destination);
+  setState('capturing');
+  wtCapture.hidden = false;
+  wtProvisional.textContent = 'Listening…';
+  captureNode.port.onmessage = function (ev) {
+    if (generation !== captureGen) return;
+    onCaptureBlock(ev.data);
+  };
+  stream.getTracks().forEach(function (track) {
+    track.addEventListener('ended', function () {
+      if (generation === captureGen) finishCapture();
+    });
+  });
+}
+
+async function startListening() {
+  setState('loading-engine');
+  try {
+    await ensureWorker();
+  } catch (err) {
+    showError(err && err.code ? err : engineLoadError());
+    return;
+  }
+  var stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        suppressLocalAudioPlayback: false
+      },
+      preferCurrentTab: false,
+      selfBrowserSurface: 'exclude',
+      systemAudio: 'exclude',
+      surfaceSwitching: 'include'
+    });
+  } catch (err) {
+    var cancelled = err && (err.name === 'NotAllowedError' || err.name === 'AbortError');
+    showError(new Error(cancelled ? 'Sharing was cancelled.' : (err && err.message ? err.message : 'Could not share a tab.')));
+    return;
+  }
+  if (handleCapturedStream(stream)) return;
+  try {
+    await runCapture(stream);
+  } catch (err) {
+    stopSharedTracks();
+    showError(err);
+  }
+}
+
+function showPane(which) {
+  var file = which === 'file';
+  paneFile.hidden = !file;
+  paneYt.hidden = file;
+  tabFile.setAttribute('aria-selected', file ? 'true' : 'false');
+  tabYt.setAttribute('aria-selected', file ? 'false' : 'true');
+}
+
+tabFile.addEventListener('click', function () { showPane('file'); });
+tabYt.addEventListener('click', function () { showPane('youtube'); });
+dropzone.addEventListener('dragover', function (ev) {
+  ev.preventDefault();
+  dropzone.classList.add('drag');
+});
+dropzone.addEventListener('dragleave', function () { dropzone.classList.remove('drag'); });
+dropzone.addEventListener('drop', function (ev) {
+  ev.preventDefault();
+  dropzone.classList.remove('drag');
+  var dropped = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+  if (dropped) runFile(dropped).catch(function () {});
+});
+fileInput.addEventListener('change', function () {
+  var chosen = fileInput.files && fileInput.files[0];
+  if (chosen) runFile(chosen).catch(function () {});
+});
+ytUrl.addEventListener('input', function () {
+  clearTimeout(ytTimer);
+  var value = ytUrl.value;
+  ytTimer = setTimeout(function () {
+    if (!parseYouTubeUrl(value)) return;
+    previewYouTube(value).catch(function (err) {
+      ytPreview.hidden = false;
+      ytTitle.textContent = err.message || 'Could not load that video.';
+    });
+  }, 300);
+});
+ytStart.addEventListener('click', function () { startListening(); });
+wtStop.addEventListener('click', function () { finishCapture(); });
+wtRetry.addEventListener('click', function () {
+  wtError.hidden = true;
+  wtRetry.hidden = true;
+  wtSeek.hidden = true;
+  if (lastErrorCode === 'engine-load') resetWorker();
+  setState('idle');
+});
+wtAudio.addEventListener('timeupdate', function () {
+  if (!__lastWalk) return;
+  var time = wtAudio.currentTime;
+  var nodes = wtChart.querySelectorAll('.wt-bar');
+  for (var i = 0; i < nodes.length; i++) {
+    var bar = __lastWalk.bars[i];
+    var on = !!(bar && time >= bar.t && time < bar.t + Math.max(bar.dur, 0.05));
+    nodes[i].classList.toggle('active', on);
+  }
+});
+window.addEventListener('pagehide', function () {
+  if (worker) {
+    try { worker.terminate(); } catch (e) { /* already gone */ }
+  }
+  objectUrls.forEach(function (url) {
+    try { URL.revokeObjectURL(url); } catch (e) { /* already revoked */ }
+  });
+  objectUrls = [];
+  if (captureStream) stopSharedTracks();
+});
+applyTabCaptureUi(navigator);
+
+window.NOTE_PC = NOTE_PC;
+window.KEY_ORDER = KEY_ORDER;
+window.SCALES = SCALES;
+window.chordFor = chordFor;
+window.parseChord = parseChord;
+window.chordToNumber = chordToNumber;
+window.buildWalkthrough = buildWalkthrough;
+window.renderWalkthrough = renderWalkthrough;
+window.decodeFile = decodeFile;
+window.runFile = runFile;
+window.shiftDownbeat = shiftDownbeat;
+window.previewYouTube = previewYouTube;
+window.parseYouTubeUrl = parseYouTubeUrl;
+window.tabCaptureSupported = tabCaptureSupported;
+window.captureRejectionReason = captureRejectionReason;
+window.handleCapturedStream = handleCapturedStream;
+window.applyTabCaptureUi = applyTabCaptureUi;
+window.WALKTHROUGH_OPTS = WALKTHROUGH_OPTS;
+window.__states = __states;
+window.__analyzeCount = __analyzeCount;
+window.__lastWalk = __lastWalk;
+window.__downbeatOffset = __downbeatOffset;
+window.analyzePcm = analyzePcm;
+window.SILENT_CAPTURE_MSG = SILENT_CAPTURE_MSG;
+window.isSilentLevel = isSilentLevel;
+window.ignoreKeyChange = ignoreKeyChange;
+window.stopCapture = stopCapture;
+window.stopSharedTracks = stopSharedTracks;
+window.bindCaptureStream = bindCaptureStream;
 </script>
 </body>
 </html>
