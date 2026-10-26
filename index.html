@@ -137,15 +137,34 @@
     min-height:340px; position:relative;
   }
   .keylabel{ color:var(--muted); font-size:13px; margin-bottom:18px; }
+  .num-carousel{
+    width:min(100%, 340px); max-width:100%; min-width:0; overflow:hidden;
+    padding:20px 0 4px; margin:-8px 0 0;
+  }
+  .num-track{ display:flex; width:100%; min-width:0; }
+  .num-track.is-sliding{ transition:transform 340ms cubic-bezier(.22,.61,.36,1); }
+  .num-slide{
+    flex:0 0 50%; min-width:0; display:flex; flex-direction:column; align-items:center;
+    position:relative; opacity:.7;
+  }
+  .num-slide.is-now{ opacity:1; }
+  .num-track.is-sliding .num-slide{ transition:opacity 340ms linear; }
   .chordnum{
     font-family:var(--serif); font-weight:600; font-size:96px; line-height:1; color:var(--accent);
-    text-shadow:var(--glow); transition:opacity .12s ease;
+    text-shadow:var(--glow); font-variant-numeric:tabular-nums;
   }
-  .chordname{ font-size:22px; color:var(--text); margin-top:8px; }
+  .chordname{ font-size:22px; color:var(--text); margin-top:8px; min-height:1.2em; }
+  @media (max-width:420px){ .chordnum{ font-size:72px; } }
+  @media (prefers-reduced-motion: reduce){
+    .num-track.is-sliding, .num-track.is-sliding .num-slide{ transition:none; }
+  }
+  .sr{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
   .dots{ display:flex; gap:10px; margin-top:26px; }
   .dot{ width:10px; height:10px; border-radius:50%; background:transparent; box-shadow:inset 0 0 0 1px var(--hairline); transition:background .15s, transform .15s; }
   .dot.active{ background:#fff; transform:scale(1.25); box-shadow:var(--glow); }
-  .next{ color:var(--muted); font-size:14px; margin-top:22px; min-height:20px; }
   .beat{ width:8px; height:8px; border-radius:50%; background:var(--dim); position:absolute; top:20px; right:22px; }
   .beat.on{ background:#fff; box-shadow:var(--glow); }
 
@@ -334,10 +353,25 @@
     <div class="stage">
       <div class="beat" id="beatDot"></div>
       <div class="keylabel" id="keyLabel">Key of G</div>
-      <div class="chordnum" id="chordNum">1</div>
-      <div class="chordname" id="chordName">G</div>
+      <div class="num-carousel" id="numCarousel">
+        <div class="num-track" id="numTrack">
+          <div class="num-slide is-now" aria-live="polite">
+            <span class="sr">Now</span>
+            <div class="chordnum" id="chordNum">1</div>
+            <div class="chordname" id="chordName">G</div>
+          </div>
+          <div class="num-slide">
+            <span class="sr">Next</span>
+            <div class="chordnum" id="nextNum">5</div>
+            <div class="chordname" id="nextName">D</div>
+          </div>
+          <div class="num-slide" aria-hidden="true">
+            <div class="chordnum" id="incomingNum">6</div>
+            <div class="chordname" id="incomingName">Em</div>
+          </div>
+        </div>
+      </div>
       <div class="dots" id="dots"></div>
-      <div class="next" id="nextLabel">next: 5 &middot; D</div>
       <div class="pianoBlock" id="pianoBlock">
         <div id="pianoWrap"></div>
         <div class="pianoCaption">Root &middot; 3rd &middot; 5th, with typical right-hand fingering (1&ndash;3&ndash;5)</div>
@@ -461,16 +495,30 @@ PROGRESSIONS.forEach((p,i)=>{
 });
 
 const dotsWrap = document.getElementById('dots');
-const chordNumEl = document.getElementById('chordNum');
-const chordNameEl = document.getElementById('chordName');
 const keyLabelEl = document.getElementById('keyLabel');
-const nextLabelEl = document.getElementById('nextLabel');
 const beatDot = document.getElementById('beatDot');
+const numTrack = document.getElementById('numTrack');
+const slideNums = [
+  document.getElementById('chordNum'),
+  document.getElementById('nextNum'),
+  document.getElementById('incomingNum')
+];
+const slideNames = [
+  document.getElementById('chordName'),
+  document.getElementById('nextName'),
+  document.getElementById('incomingName')
+];
+const SLIDE_MS = 340;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let timer = null;
+let slideTimer = null;
 let beatCount = 0;
 let chordIndex = 0;
+let shownIndex = 0;
+let carouselSliding = false;
 let currentKey = keySel.value;
+let currentChordName = 'G';
 let audioCtx = null;
 
 function chordFor(key, degree){
@@ -524,17 +572,91 @@ function renderPiano(chordName){
   document.getElementById('pianoWrap').innerHTML = svg;
 }
 
-function updateDisplay(){
+function fillSlide(i, degree){
+  slideNums[i].textContent = degree;
+  slideNames[i].textContent = chordFor(currentKey, degree);
+}
+
+function paintSlides(index){
   const progression = PROGRESSIONS[progSel.value].degrees;
+  const len = progression.length;
+  fillSlide(0, progression[index % len]);
+  fillSlide(1, progression[(index + 1) % len]);
+  fillSlide(2, progression[(index + 2) % len]);
+}
+
+function setNow(index){
+  for(let i = 0; i < numTrack.children.length; i++){
+    numTrack.children[i].classList.toggle('is-now', i === index);
+  }
+}
+
+function haltMotion(){
+  clearTimeout(slideTimer);
+  slideTimer = null;
+  carouselSliding = false;
+  numTrack.classList.remove('is-sliding');
+  numTrack.style.transform = 'translateX(0)';
+}
+
+function commitInFlight(){
+  if(!carouselSliding) return;
+  const progression = PROGRESSIONS[progSel.value].degrees;
+  clearTimeout(slideTimer);
+  slideTimer = null;
+  carouselSliding = false;
+  shownIndex = (shownIndex + 1) % progression.length;
+  numTrack.classList.remove('is-sliding');
+  numTrack.style.transform = 'translateX(0)';
+  setNow(0);
+  paintSlides(shownIndex);
+}
+
+function startSlide(){
+  const progression = PROGRESSIONS[progSel.value].degrees;
+  const len = progression.length;
+  fillSlide(1, progression[(shownIndex + 1) % len]);
+  fillSlide(2, progression[(shownIndex + 2) % len]);
+  numTrack.classList.remove('is-sliding');
+  numTrack.style.transform = 'translateX(0)';
+  setNow(0);
+  void numTrack.offsetWidth;
+  carouselSliding = true;
+  numTrack.classList.add('is-sliding');
+  numTrack.style.transform = 'translateX(-50%)';
+  setNow(1);
+  clearTimeout(slideTimer);
+  slideTimer = setTimeout(commitInFlight, SLIDE_MS + 40);
+}
+
+function updateDisplay(opts){
+  const animate = !!(opts && opts.animate) && !reduceMotion;
+  const progression = PROGRESSIONS[progSel.value].degrees;
+  const len = progression.length;
   const degree = progression[chordIndex];
-  const nextDegree = progression[(chordIndex+1) % progression.length];
-  const chordName = chordFor(currentKey, degree);
+  currentChordName = chordFor(currentKey, degree);
   keyLabelEl.textContent = `Key of ${currentKey}`;
-  chordNumEl.textContent = degree;
-  chordNameEl.textContent = chordName;
-  nextLabelEl.textContent = `next: ${nextDegree} · ${chordFor(currentKey, nextDegree)}`;
   [...dotsWrap.children].forEach((d,i)=>d.classList.toggle('active', i===chordIndex));
-  if(showKeyboardBox.checked) renderPiano(chordName);
+  if(showKeyboardBox.checked) renderPiano(currentChordName);
+
+  if(!animate){
+    haltMotion();
+    shownIndex = chordIndex;
+    setNow(0);
+    paintSlides(shownIndex);
+    return;
+  }
+
+  if(carouselSliding) commitInFlight();
+  const steps = (chordIndex - shownIndex + len) % len;
+  if(steps !== 1){
+    haltMotion();
+    shownIndex = chordIndex;
+    setNow(0);
+    paintSlides(shownIndex);
+    return;
+  }
+  startSlide();
 }
 
 function pickRandomKey(){
@@ -572,7 +694,7 @@ function tick(){
     if(wasLastChord && randomKeyBox.checked){
       pickRandomKey();
     }
-    updateDisplay();
+    updateDisplay({animate:true});
   }
   const isDownbeat = beatCount === 0;
   playClick(isDownbeat);
@@ -609,7 +731,7 @@ skipBtn.addEventListener('click', ()=>{
   if(chordIndex === 0 && randomKeyBox.checked) pickRandomKey();
   if(!timer){ currentKey = randomKeyBox.checked ? currentKey : keySel.value; }
   renderDots(progression);
-  updateDisplay();
+  updateDisplay({animate:true});
 });
 tempoInput.addEventListener('input', ()=>{
   document.getElementById('tempoVal').textContent = `${tempoInput.value} bpm`;
@@ -623,7 +745,7 @@ metroVol.addEventListener('input', ()=>{
 });
 showKeyboardBox.addEventListener('change', ()=>{
   pianoBlock.style.display = showKeyboardBox.checked ? 'flex' : 'none';
-  if(showKeyboardBox.checked) renderPiano(chordNameEl.textContent);
+  if(showKeyboardBox.checked) renderPiano(currentChordName);
 });
 keySel.addEventListener('change', ()=>{
   currentKey = keySel.value;
